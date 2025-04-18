@@ -14,9 +14,9 @@
 # ==============================================================================
 # Initialize variables
 MODEL_NAME_OR_PATH="../models/Janus-Pro-1B"
-TRAIN_DATASETS="../projects/janus/example/supervised/text_to_image"
+TRAIN_DATASETS="../projects/janus/example/supervised/text_image_to_image"
 TRAIN_DATA_FILE="train_tokenized.pt"
-OUTPUT_DIR="output/janus_sft_text_to_image"
+OUTPUT_DIR="output/janus_sft_text_image_to_image"
 JANUS_REPO_PATH="../Align_Anything_Janus"
 
 export PYTHONPATH=$PYTHONPATH:$JANUS_REPO_PATH

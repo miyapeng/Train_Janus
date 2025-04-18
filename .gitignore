@@ -424,3 +424,7 @@ tags
 local_scripts/
 
 *.gradio/
+
+models
+
+projects/janus/cache

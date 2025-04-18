@@ -45,6 +45,7 @@ def load_image(image_path: str):
 def format_sample_janus(piece, vl_chat_processor):
     sample = {
         'input_text': piece['prompt'],
+        'input_image': load_image(piece['input_image']),
         'output_image': load_image(piece['image']),
     }
     return sample
@@ -65,6 +66,10 @@ def tokenize_sample(vl_chat_processor, vl_gpt, vl_image_processor, formatted_sam
     input_ids = vl_chat_processor.tokenizer.encode(prompt)
     input_ids = torch.LongTensor(input_ids).to(vl_gpt.device)
 
+    # input_image
+    pixel_values_input = vl_image_processor([formatted_sample['input_image']], return_tensors='pt')['pixel_values'].to(vl_gpt.device).to(torch.bfloat16)
+    _, _, (_, _, input_image_tokens) = vl_gpt.gen_vision_model.encode(pixel_values_input)
+
     pixel_values = (
         vl_image_processor([formatted_sample['output_image']], return_tensors='pt')['pixel_values']
         .to(vl_gpt.device)
@@ -75,18 +80,14 @@ def tokenize_sample(vl_chat_processor, vl_gpt, vl_image_processor, formatted_sam
         (vq_loss, commit_loss, entropy_loss),
         (perplexity, min_encodings, min_encoding_indices),
     ) = vl_gpt.gen_vision_model.encode(pixel_values)
-    print("+++++++++++++++++++++++++++++++++++++++++++++")
-    print(f"input_ids_shape: {input_ids.shape}")
-    print(f"min_encoding_indices_shape: {min_encoding_indices.shape}")
-    print("+++++++++++++++++++++++++++++++++++++++++++++")
-    full_input_ids = torch.cat([input_ids, min_encoding_indices])
+    full_input_ids = torch.cat([input_ids, input_image_tokens, min_encoding_indices])
     labels = full_input_ids.clone()
-    labels[: len(input_ids)] = ignore_index
+    labels[: len(input_ids) + len(input_image_tokens)] = ignore_index
 
     return {
         'input_ids': full_input_ids.to('cpu'),
         'labels': labels.to('cpu'),
-        'task': 'generation',
+        'task': 'TI2I_generation',
     }
 
 

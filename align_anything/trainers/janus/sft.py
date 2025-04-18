@@ -23,6 +23,7 @@ import deepspeed
 import torch
 import transformers
 from janus.models import MultiModalityCausalLM, VLChatProcessor, VLMImageProcessor
+import wandb
 
 from align_anything.datasets.janus import SupervisedBatch, SupervisedTokenizedDataset
 from align_anything.trainers.text_to_text.sft import SupervisedTrainer as SupervisedtextTrainer
@@ -79,7 +80,8 @@ class SuperviseTrainer(SupervisedtextTrainer):
 
     def loss(self, sft_batch: SupervisedBatch) -> dict[str, torch.Tensor]:
         """Loss function for supervised finetuning."""
-        outputs = self.model.forward(**sft_batch, task=sft_batch['task'])
+        # outputs = self.model.forward(**sft_batch, task=sft_batch['task'])
+        outputs = self.model.forward(**sft_batch)
         return {
             'loss': outputs.loss,
         }
@@ -113,6 +115,7 @@ def main():
     trainer.train()
     trainer.save()
 
+    wandb.finish()
 
 if __name__ == '__main__':
     sys.exit(main())
