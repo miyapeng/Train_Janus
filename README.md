@@ -38,6 +38,51 @@
 
 </div>
 
+Run codes for our project
+
+```bash
+# clone the repository
+git clone https://github.com/miyapeng/Train_Janus.git
+cd align-anything
+
+# create virtual env
+conda create -n align-anything python==3.11
+conda activate align-anything
+```
+```bash
+# We tested on the H800 computing cluster, and this version of CUDA works well.
+# You can adjust this version according to the actual situation of the computing cluster.
+
+conda install nvidia/label/cuda-12.2.0::cuda
+export CUDA_HOME=$CONDA_PREFIX
+```
+> If your CUDA installed in a different location, such as `/usr/local/cuda/bin/nvcc`, you can set the environment variables as follows:
+
+```bash
+export CUDA_HOME="/usr/local/cuda"
+```
+
+Finally, install `align-anything` by:
+
+```bash
+pip install -e .
+
+pip install vllm==0.7.2 # to run ppo on vllm engine
+```
+
+Then download the Janus configuration code 
+
+```bash
+cd Align_Anything_Janus
+pip install -e .
+```
+Then we can run the bash script
+
+```bash
+cd scripts
+bash janus/janus_sft.sh
+```
+
 Align-Anything aims to align any modality large models (any-to-any models) with human intentions and values. 
 
 - **Highly Modular Framework** allowing users to easily modify and customize the code for different tasks (see [framework design](https://align-anything.readthedocs.io/)).
