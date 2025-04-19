@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 # Initialize variables
-MODEL_NAME_OR_PATH="../models/Janus-Pro-1B"
+MODEL_NAME_OR_PATH="../model/Janus-Pro-1B"
 TRAIN_DATASETS="../projects/janus/example/supervised/text_image_to_image"
 TRAIN_DATA_FILE="train_tokenized.pt"
 OUTPUT_DIR="output/janus_sft_text_image_to_image"

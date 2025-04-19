@@ -425,6 +425,6 @@ local_scripts/
 
 *.gradio/
 
-models
+model/
 
 projects/janus/cache
