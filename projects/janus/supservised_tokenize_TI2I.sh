@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
-INPUT_PATH="/home/miyapeng/align-anything/projects/janus/example/supervised/text_image_to_image/train1.json"
-OUTPUT_PATH="/home/miyapeng/align-anything/projects/janus/example/supervised/text_image_to_image/train_tokenized1.pt"
-MODEL_PATH="/home/miyapeng/align-anything/models/Janus-Pro-1B"
-CACHE_DIR="/home/miyapeng/align-anything/projects/janus/cache"
-JANUS_REPO_PATH="/home/miyapeng/align-anything/Align_Anything_Janus"
+INPUT_PATH="example/supervised/text_image_to_image/train.json"
+OUTPUT_PATH="example/supervised/text_image_to_image/train_tokenized.pt"
+MODEL_PATH="/fs-computility/ai-shen/fanyuyu/Train_Janus/model/Janus-Pro-1B"
+CACHE_DIR="cache"
+JANUS_REPO_PATH="../Align_Anything_Janus"
 mkdir -p $CACHE_DIR
 NUM_PROCESSES=1
 NUM_GPUS=1

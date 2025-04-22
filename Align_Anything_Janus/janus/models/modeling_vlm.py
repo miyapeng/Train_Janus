@@ -265,7 +265,7 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
         return self.gen_aligner(self.gen_embed(image_ids))
 
     def forward(self, 
-                input_ids, labels=None, task="understanding", return_dict=True, **kwargs):
+                input_ids, input_text_ids, input_image_ids, output_image_ids, labels=None, task="understanding", return_dict=True, **kwargs):
         print("+++++++++++++++++++++++++++++++++++++++++++++++")
         print(f"task: {task}")
         print("+++++++++++++++++++++++++++++++++++++++++++++++")
@@ -276,10 +276,10 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
             image_token_num_per_image = 576
             cfg_weight = 5
             temperature = 1
-            print("+++++++++++++++++++++++++++++++++++++++++++++++")
-            print(f"input_ids_0: {input_ids.size(0)}")
-            print(f"input_ids_1: {input_ids.size(1)}")
-            print("+++++++++++++++++++++++++++++++++++++++++++++++")
+            # print("+++++++++++++++++++++++++++++++++++++++++++++++")
+            # print(f"input_ids_0: {input_ids.size(0)}")
+            # print(f"input_ids_1: {input_ids.size(1)}")
+            # print("+++++++++++++++++++++++++++++++++++++++++++++++")
             tokens = torch.zeros((2*input_ids.size(0), input_ids.size(1)), dtype=torch.int).cuda()
             for i in range(2):
                 tokens[i*input_ids.size(0):(i+1)*input_ids.size(0), :] = input_ids
@@ -287,6 +287,9 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
                     tokens[i*input_ids.size(0):(i+1)*input_ids.size(0), 1:-1] = 100015 # pad_id
 
             inputs_embeds = self.language_model.get_input_embeddings()(tokens)
+            print("Embedding size:", self.language_model.get_input_embeddings().weight.size(0))
+            print("Max token id in input_ids:", input_ids.max())
+            
             print("+++++++++++++++++++++++++++++++++++++++++++++++")
             print(f"inputs_embeds_shape: {inputs_embeds.shape}")
             print("+++++++++++++++++++++++++++++++++++++++++++++++")
@@ -299,6 +302,34 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
             logits_uncond = logits[1::2, :]
 
             all_logits = logits_uncond + cfg_weight * (logits_cond - logits_uncond)
+            # #Show image to see
+            # # 截取后 576 个位置，对应 image token 预测
+            # image_logits = all_logits[:, -576:, :]  # [1, 576, 16384]
+            # print(f"image_logits_shape: {image_logits.shape}")
+            # probs = torch.softmax(image_logits / temperature, dim=-1)
+            # print(f"probs_shape:{probs.shape}")
+            # #print(probs[0,0:5,0:10])
+            # B, N, V = probs.shape
+            # image_token_ids = torch.multinomial(probs.view(-1, V), num_samples=1).view(B, N)
+            # print(f"image_token_ids_shape:{image_token_ids.shape}")
+            # print(image_token_ids)
+            # # decode 成图像
+            # decoded_images = self.gen_vision_model.decode_code(
+            #     image_token_ids.to(dtype=torch.int),
+            #     shape=[1, 8, 24, 24],  # 通常 384x384 = 24x24
+            # )
+            # decoded_images = decoded_images.detach().to(torch.float32).cpu().numpy().transpose(0, 2, 3, 1)
+            # import numpy as np
+            # decoded_images = np.clip((decoded_images + 1) / 2 * 255, 0, 255).astype(np.uint8)
+            # print(f"decoded_images_shape:{decoded_images.shape}")
+            # visual_img = np.zeros((1,384,384,3), dtype=np.uint8)
+            # visual_img[:,:,:] = decoded_images
+
+            # # 保存图片
+            # import os, PIL.Image
+            # os.makedirs("t2i_generated_images", exist_ok=True)
+            # for i in range(1):
+            #     PIL.Image.fromarray(visual_img[i]).save(f"t2i_generated_images/img_{i}.jpg")
 
             loss_fct = CrossEntropyLoss()
             shift_logits = all_logits[..., :-1, :].contiguous()
@@ -327,32 +358,65 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
             image_token_num_per_image = 576
             cfg_weight = 5
             temperature = 1
+            
+            # train without cfg
+            device = input_ids.device
+            tokens = input_text_ids.to(dtype=torch.int, device=device)
+            text_inputs_embeds = self.language_model.get_input_embeddings()(tokens)
+            input_image_embeds = self.prepare_gen_img_embeds(input_image_ids)
+            output_image_embeds = self.prepare_gen_img_embeds(output_image_ids)
+            inputs_embeds = torch.cat([text_inputs_embeds,input_image_embeds,output_image_embeds],dim=1)
             print("+++++++++++++++++++++++++++++++++++++++++++++++")
-            print(f"input_ids_0: {input_ids.size(0)}")
-            print(f"input_ids_1: {input_ids.size(1)}")
-            print("+++++++++++++++++++++++++++++++++++++++++++++++")
-            tokens = torch.zeros((2*input_ids.size(0), input_ids.size(1)), dtype=torch.int).cuda()
-            for i in range(2):
-                tokens[i*input_ids.size(0):(i+1)*input_ids.size(0), :] = input_ids
-                if i % 2 != 0:
-                    tokens[i*input_ids.size(0):(i+1)*input_ids.size(0), 1:-1] = 100015 # pad_id
-
-            inputs_embeds = self.language_model.get_input_embeddings()(tokens)
-            print("+++++++++++++++++++++++++++++++++++++++++++++++")
+            print(f"text_inputs_embeds_shape: {text_inputs_embeds.shape}")
+            print(f"input_image_embeds_shape: {input_image_embeds.shape}")
+            print(f"output_image_embeds_shape: {output_image_embeds.shape}")
             print(f"inputs_embeds_shape: {inputs_embeds.shape}")
             print("+++++++++++++++++++++++++++++++++++++++++++++++")
+
+            # #train with cfg
+            # tokens = torch.zeros((2*input_text_ids.size(0), input_text_ids.size(1)), dtype=torch.int).cuda()
+            # for i in range(2):
+            #     tokens[i*input_text_ids.size(0):(i+1)*input_text_ids.size(0), :] = input_text_ids
+            #     if i % 2 != 0:
+            #         tokens[i*input_text_ids.size(0):(i+1)*input_text_ids.size(0), 1:-1] = 100015 # pad_id
+            # inputs_text_embeds = self.language_model.get_input_embeddings()(tokens)
+
+            # input_image_embeds = self.prepare_gen_img_embeds(input_image_ids)
+            # output_image_embeds = self.prepare_gen_img_embeds(output_image_ids)
+
+            # pad_embed = self.language_model.get_input_embeddings()(torch.tensor([100015]).cuda()).squeeze(0)  # [D]
+
+            # input_image_embeds_uncond = pad_embed.unsqueeze(0).unsqueeze(0).expand(input_image_embeds.size(0), input_image_embeds.size(1), -1)   # [B, T1, D]
+            # output_image_embeds_uncond = pad_embed.unsqueeze(0).unsqueeze(0).expand(input_image_embeds.size(0), output_image_embeds.size(1), -1) # [B, T2, D]
+
+            # input_image_embeds = torch.cat([input_image_embeds, input_image_embeds_uncond], dim=0)     # [2B, T1, D]
+            # output_image_embeds = torch.cat([output_image_embeds, output_image_embeds_uncond], dim=0)  # [2B, T2, D]
+
+            # inputs_embeds = torch.cat([inputs_text_embeds, input_image_embeds, output_image_embeds], dim=1)  # [2B, L+T1+T2, D]
+
+            # print("+++++++++++++++++++++++++++++++++++++++++++++++")
+            # print(f"text_inputs_embeds_shape: {inputs_text_embeds.shape}")
+            # print(f"input_image_embeds_shape: {input_image_embeds.shape}")
+            # print(f"output_image_embeds_shape: {output_image_embeds.shape}")
+            # print(f"inputs_embeds_shape: {inputs_embeds.shape}")
+            # print("+++++++++++++++++++++++++++++++++++++++++++++++")
+
             outputs = self.language_model.model(inputs_embeds=inputs_embeds, use_cache=True, past_key_values=None)
 
             hidden_states = outputs.last_hidden_state
             logits = self.gen_head(hidden_states)
+            print(f"logits_shape:{logits.shape}")
 
-            logits_cond = logits[0::2, :]
-            logits_uncond = logits[1::2, :]
+            # # cfg compute
+            # logits_cond = logits[0::2, :]
+            # logits_uncond = logits[1::2, :]
+            # logits = logits_uncond + cfg_weight * (logits_cond - logits_uncond)
 
-            all_logits = logits_uncond + cfg_weight * (logits_cond - logits_uncond)
+            logits = logits.float() #turn float16 into float32
+            print(f"logits_type: {logits.dtype}")
 
             loss_fct = CrossEntropyLoss()
-            shift_logits = all_logits[..., :-1, :].contiguous()
+            shift_logits = logits[..., :-1, :].contiguous()
             shift_logits = shift_logits.view(-1, self.config.gen_head_config.params.image_token_size)
 
             if labels is not None:
@@ -360,6 +424,11 @@ class MultiModalityCausalLM(MultiModalityPreTrainedModel):
                 shift_labels = shift_labels.view(-1)
                 shift_labels = shift_labels.to(shift_logits.device)
                 loss = loss_fct(shift_logits, shift_labels)
+
+                # print(f"shift_labels_shape: {shift_labels.shape}")
+                # print(shift_labels[612:622])
+                # print(f"shift_logits_shape: {shift_logits.shape}")
+                # print(shift_logits[612,:622])
             else:
                 loss = None
             if not return_dict:

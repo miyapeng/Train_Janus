@@ -86,6 +86,9 @@ def tokenize_sample(vl_chat_processor, vl_gpt, vl_image_processor, formatted_sam
 
     return {
         'input_ids': full_input_ids.to('cpu'),
+        'input_text_ids': input_ids.to('cpu'),
+        'input_image_ids': input_image_tokens.to('cpu'),
+        'output_image_ids': min_encoding_indices.to('cpu'),
         'labels': labels.to('cpu'),
         'task': 'TI2I_generation',
     }

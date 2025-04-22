@@ -428,3 +428,7 @@ local_scripts/
 model/
 
 projects/janus/cache
+
+data/
+
+scripts/t2i_generated_images
